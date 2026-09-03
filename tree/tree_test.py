@@ -965,6 +965,46 @@ class NestTest(parameterized.TestCase):
   def testFlattenWithPath(self, inputs, expected):
     self.assertEqual(tree.flatten_with_path(inputs), expected)
 
+  def testFlattenWithPathBytearrayIsLeaf(self):
+    # A bytearray is treated as a single leaf by tree.flatten (see
+    # testFlatten_bytearrayIsNotFlattened), so the path-based variants must
+    # not descend into it.
+    ba = bytearray(b"hi")
+    self.assertEqual(tree.flatten_with_path(ba), [((), ba)])
+    structure = {"x": ba}
+    self.assertEqual(tree.flatten_with_path(structure), [(("x",), ba)])
+    self.assertEqual([v for _, v in tree.flatten_with_path(structure)],
+                     tree.flatten(structure))
+
+  def testFlattenUpToBytearrayIsAtom(self):
+    # bytearray is an atom, so flattening "up to" it returns the whole input
+    # tree as a single item, like any other scalar shallow structure.
+    self.assertEqual(tree.flatten_up_to(bytearray(b"hi"), [1, 2]), [[1, 2]])
+    self.assertEqual(tree.flatten_up_to(bytearray(b"hi"), [1, 2, 3]),
+                     [[1, 2, 3]])
+
+  def testFlattenWithPathMappingViews(self):
+    # tree.flatten descends into mapping views (dict_values, dict_items, ...)
+    # and the path-based traversal should yield the same elements.
+    d = {"b": 1, "a": 2}
+    for view in (d.values(), d.keys(), d.items()):
+      with_path = tree.flatten_with_path(view)
+      self.assertEqual([v for _, v in with_path], tree.flatten(view))
+      self.assertEqual(len(with_path), len(tree.flatten(view)))
+
+  def testMapStructureWithPathMatchesMapStructureForLeaves(self):
+    # Structures containing only leaves in the eyes of tree.flatten must map
+    # identically whether or not paths are requested.
+    structures = [
+        {"x": bytearray(b"hi")},
+        {"x": {"b": 1, "a": 2}.values()},
+        {"x": [1, {"y": bytearray(b"z")}]},
+    ]
+    for structure in structures:
+      self.assertEqual(
+          tree.map_structure(lambda v: v, structure),
+          tree.map_structure_with_path(lambda path, v: v, structure))
+
   @parameterized.named_parameters([
       dict(testcase_name="Tuples", s1=(1, 2), s2=(3, 4),
            check_types=True, expected=(((0,), 4), ((1,), 6))),
