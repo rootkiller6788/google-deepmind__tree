@@ -61,10 +61,6 @@ __all__ = [
 
 __version__ = "0.1.10"
 
-# Note: this is *not* the same as `six.string_types`, which in Python3 is just
-#       `(str,)` (i.e. it does not include byte strings).
-_TEXT_OR_BYTES = (str, bytes)
-
 _SHALLOW_TREE_HAS_INVALID_KEYS = (
     "The shallow_tree's keys are not a subset of the input_tree's keys. The "
     "shallow_tree has the following keys that are not in the input_tree: {}.")
@@ -484,11 +480,7 @@ def _yield_flat_up_to(shallow_tree, input_tree, path=()):
     shallow_tree, and value is the value of the corresponding node in
     input_tree.
   """
-  if (isinstance(shallow_tree, _TEXT_OR_BYTES) or
-      not (isinstance(shallow_tree, (collections_abc.Mapping,
-                                     collections_abc.Sequence)) or
-           _is_namedtuple(shallow_tree) or
-           _is_attrs(shallow_tree))):
+  if not is_nested(shallow_tree):
     yield (path, input_tree)
   else:
     input_tree = dict(_yield_sorted_items(input_tree))
